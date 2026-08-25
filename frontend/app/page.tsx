@@ -1,6 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import {
+  evaluatePayment,
+  type PaymentRequest,
+} from "../lib/paymentEngine";
 
 type Agent = {
   id: number;
@@ -9,6 +13,7 @@ type Agent = {
   dailyLimit: number;
   transactionLimit: number;
   active: boolean;
+  spentToday: number;
 };
 
 const initialAgents: Agent[] = [
@@ -19,6 +24,7 @@ const initialAgents: Agent[] = [
     dailyLimit: 20,
     transactionLimit: 5,
     active: true,
+    spentToday: 0,
   },
 ];
 
@@ -51,6 +57,14 @@ export default function Home() {
   const [balance, setBalance] = useState("100");
   const [dailyLimit, setDailyLimit] = useState("20");
   const [transactionLimit, setTransactionLimit] = useState("5");
+  const [paymentMerchant, setPaymentMerchant] = useState("");
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [selectedAgentId, setSelectedAgentId] = useState(1);
+
+const [paymentResult, setPaymentResult] = useState<{
+  approved: boolean;
+  reason: string;
+} | null>(null);
 
   const totalBalance = agents.reduce(
     (total, agent) => total + agent.balance,
@@ -71,6 +85,7 @@ export default function Home() {
       dailyLimit: Number(dailyLimit),
       transactionLimit: Number(transactionLimit),
       active: true,
+      spentToday: 0,
     };
 
     setAgents((currentAgents) => [...currentAgents, newAgent]);
@@ -81,6 +96,41 @@ export default function Home() {
     setTransactionLimit("5");
     setShowCreateForm(false);
   }
+
+  function requestPayment() {
+  const agent = agents.find(
+    (agent) => agent.id === selectedAgentId
+  );
+
+  if (!agent) {
+    return;
+  }
+
+  const request: PaymentRequest = {
+    agentId: agent.id,
+    merchant: paymentMerchant,
+    amount: Number(paymentAmount),
+  };
+
+  const decision = evaluatePayment(agent, request);
+
+  setPaymentResult(decision);
+
+  if (decision.approved) {
+    setAgents((currentAgents) =>
+      currentAgents.map((currentAgent) =>
+        currentAgent.id === agent.id
+          ? {
+              ...currentAgent,
+              balance: currentAgent.balance - request.amount,
+              spentToday:
+                currentAgent.spentToday + request.amount,
+            }
+          : currentAgent
+      )
+    );
+  }
+}
 
   function toggleAgent(id: number) {
     setAgents((currentAgents) =>
@@ -287,6 +337,109 @@ export default function Home() {
             ))}
           </div>
         </section>
+        {/* Payment Request */}
+<section className="mt-8">
+  <div className="mb-4">
+    <h2 className="text-xl font-semibold">Request Payment</h2>
+    <p className="mt-1 text-sm text-slate-400">
+      Test how your agent wallet approves or blocks payments.
+    </p>
+  </div>
+
+  <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+    <div className="grid gap-4 md:grid-cols-3">
+      {/* Agent */}
+      <div>
+        <label className="text-sm text-slate-400">
+          Agent
+        </label>
+
+        <select
+          value={selectedAgentId}
+          onChange={(e) =>
+            setSelectedAgentId(Number(e.target.value))
+          }
+          className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 outline-none"
+        >
+          {agents.map((agent) => (
+            <option key={agent.id} value={agent.id}>
+              {agent.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Merchant */}
+      <div>
+        <label className="text-sm text-slate-400">
+          Merchant
+        </label>
+
+        <input
+          value={paymentMerchant}
+          onChange={(e) =>
+            setPaymentMerchant(e.target.value)
+          }
+          placeholder="e.g. OpenAI API"
+          className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 outline-none focus:border-slate-400"
+        />
+      </div>
+
+      {/* Amount */}
+      <div>
+        <label className="text-sm text-slate-400">
+          Amount
+        </label>
+
+        <input
+          type="number"
+          step="0.01"
+          min="0"
+          value={paymentAmount}
+          onChange={(e) =>
+            setPaymentAmount(e.target.value)
+          }
+          placeholder="0.15"
+          className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 outline-none focus:border-slate-400"
+        />
+      </div>
+    </div>
+
+    <button
+      onClick={requestPayment}
+      className="mt-5 rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-slate-950 hover:bg-slate-200"
+    >
+      Request Payment
+    </button>
+
+    {/* Result */}
+    {paymentResult && (
+      <div
+        className={`mt-5 rounded-xl border p-4 ${
+          paymentResult.approved
+            ? "border-emerald-500/30 bg-emerald-500/10"
+            : "border-red-500/30 bg-red-500/10"
+        }`}
+      >
+        <p
+          className={`font-semibold ${
+            paymentResult.approved
+              ? "text-emerald-400"
+              : "text-red-400"
+          }`}
+        >
+          {paymentResult.approved
+            ? "✓ PAYMENT APPROVED"
+            : "✕ PAYMENT BLOCKED"}
+        </p>
+
+        <p className="mt-1 text-sm text-slate-300">
+          {paymentResult.reason}
+        </p>
+      </div>
+    )}
+  </div>
+</section>
 
         {/* Transactions */}
         <section className="mt-8">
