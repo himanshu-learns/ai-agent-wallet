@@ -6,6 +6,11 @@ import {
   type PaymentRequest,
 } from "../lib/paymentEngine";
 
+import {
+  createTransaction,
+  type Transaction,
+} from "../lib/transactionLedger";
+
 type Agent = {
   id: number;
   name: string;
@@ -28,29 +33,40 @@ const initialAgents: Agent[] = [
   },
 ];
 
-const transactions = [
+const initialTransactions: Transaction[] = [
   {
+    id: 1,
+    agentId: 1,
     merchant: "OpenAI API",
-    amount: "$0.15",
+    amount: 0.15,
     status: "Approved",
-    time: "2 min ago",
+    reason: "Payment approved",
+    createdAt: new Date().toISOString(),
   },
   {
+    id: 2,
+    agentId: 1,
     merchant: "AWS",
-    amount: "$2.00",
+    amount: 2,
     status: "Approved",
-    time: "18 min ago",
+    reason: "Payment approved",
+    createdAt: new Date().toISOString(),
   },
   {
+    id: 3,
+    agentId: 1,
     merchant: "Unknown Service",
-    amount: "$10.00",
+    amount: 10,
     status: "Blocked",
-    time: "32 min ago",
+    reason: "Transaction limit exceeded",
+    createdAt: new Date().toISOString(),
   },
 ];
 
 export default function Home() {
   const [agents, setAgents] = useState<Agent[]>(initialAgents);
+  const [transactions, setTransactions] =
+  useState<Transaction[]>(initialTransactions);
   const [showCreateForm, setShowCreateForm] = useState(false);
 
   const [name, setName] = useState("");
@@ -114,7 +130,20 @@ const [paymentResult, setPaymentResult] = useState<{
 
   const decision = evaluatePayment(agent, request);
 
-  setPaymentResult(decision);
+setPaymentResult(decision);
+
+const transaction = createTransaction(
+  agent.id,
+  request.merchant,
+  request.amount,
+  decision.approved,
+  decision.reason
+);
+
+setTransactions((currentTransactions) => [
+  transaction,
+  ...currentTransactions,
+]);
 
   if (decision.approved) {
     setAgents((currentAgents) =>
@@ -450,18 +479,18 @@ const [paymentResult, setPaymentResult] = useState<{
           <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900">
             {transactions.map((transaction) => (
               <div
-                key={`${transaction.merchant}-${transaction.time}`}
+                key={transaction.id}
                 className="flex flex-col gap-3 border-b border-slate-800 p-5 last:border-b-0 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div>
                   <p className="font-medium">{transaction.merchant}</p>
                   <p className="text-sm text-slate-500">
-                    {transaction.time}
+                    {new Date(transaction.createdAt).toLocaleString()}
                   </p>
                 </div>
 
                 <div className="flex items-center gap-6">
-                  <p className="font-medium">{transaction.amount}</p>
+                  <p className="font-medium">${transaction.amount.toFixed(2)}</p>
 
                   <span
                     className={`rounded-full px-3 py-1 text-xs font-medium ${
