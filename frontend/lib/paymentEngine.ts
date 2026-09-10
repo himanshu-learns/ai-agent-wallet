@@ -7,6 +7,7 @@ export type Agent = {
   active: boolean;
   spentToday?: number;
   apiKey: string;
+  allowedMerchants: string[];
 };
 
 export type PaymentRequest = {
@@ -70,7 +71,15 @@ export function evaluatePayment(
     };
   }
 
-  // 6. Payment passes all policies
+  // 6. Check merchant allowlist
+if (!agent.allowedMerchants.includes(request.merchant)) {
+  return {
+    approved: false,
+    reason: "Merchant is not allowed",
+  };
+}
+
+  // 7. Payment passes all policies
   return {
     approved: true,
     reason: "Payment approved",

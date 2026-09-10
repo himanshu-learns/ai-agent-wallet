@@ -10,6 +10,7 @@ export const agents: Agent[] = [
     active: true,
     spentToday: 0,
     apiKey: "sandbox-agent-key-001",
+    allowedMerchants: ["OpenAI API", "AWS"],
   },
 ];
 
