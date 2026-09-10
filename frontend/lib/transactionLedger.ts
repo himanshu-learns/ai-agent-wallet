@@ -8,6 +8,8 @@ export type Transaction = {
   createdAt: string;
 };
 
+export const transactions: Transaction[] = [];
+
 export function createTransaction(
   agentId: number,
   merchant: string,
@@ -15,7 +17,7 @@ export function createTransaction(
   approved: boolean,
   reason: string
 ): Transaction {
-  return {
+  const transaction: Transaction = {
     id: Date.now(),
     agentId,
     merchant,
@@ -24,4 +26,8 @@ export function createTransaction(
     reason,
     createdAt: new Date().toISOString(),
   };
+
+  transactions.unshift(transaction);
+
+  return transaction;
 }

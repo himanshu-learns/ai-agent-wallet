@@ -6,6 +6,7 @@ export type Agent = {
   transactionLimit: number;
   active: boolean;
   spentToday?: number;
+  apiKey: string;
 };
 
 export type PaymentRequest = {
