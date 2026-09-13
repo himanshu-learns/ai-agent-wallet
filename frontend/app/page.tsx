@@ -113,7 +113,7 @@ const [paymentResult, setPaymentResult] = useState<{
     setShowCreateForm(false);
   }
 
-  function requestPayment() {
+async function requestPayment() {
   const agent = agents.find(
     (agent) => agent.id === selectedAgentId
   );
@@ -122,42 +122,51 @@ const [paymentResult, setPaymentResult] = useState<{
     return;
   }
 
-  const request: PaymentRequest = {
-    agentId: agent.id,
-    merchant: paymentMerchant,
-    amount: Number(paymentAmount),
-  };
+  try {
+    const response = await fetch("/api/payments", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-agent-api-key": "sandbox-agent-key-001",
+      },
+      body: JSON.stringify({
+        agentId: agent.id,
+        merchant: paymentMerchant,
+        amount: Number(paymentAmount),
+      }),
+    });
 
-  const decision = evaluatePayment(agent, request);
+    const data = await response.json();
 
-setPaymentResult(decision);
+    setPaymentResult({
+      approved: data.approved,
+      reason: data.reason,
+    });
 
-const transaction = createTransaction(
-  agent.id,
-  request.merchant,
-  request.amount,
-  decision.approved,
-  decision.reason
-);
-
-setTransactions((currentTransactions) => [
-  transaction,
-  ...currentTransactions,
-]);
-
-  if (decision.approved) {
-    setAgents((currentAgents) =>
-      currentAgents.map((currentAgent) =>
-        currentAgent.id === agent.id
-          ? {
-              ...currentAgent,
-              balance: currentAgent.balance - request.amount,
-              spentToday:
-                currentAgent.spentToday + request.amount,
-            }
-          : currentAgent
-      )
-    );
+    if (data.transaction) {
+      setTransactions((currentTransactions) => [
+        data.transaction,
+        ...currentTransactions,
+      ]);
+    }
+  if (data.approved && data.agent) {
+  setAgents((currentAgents) =>
+    currentAgents.map((currentAgent) =>
+      currentAgent.id === data.agent.id
+        ? {
+            ...currentAgent,
+            balance: data.agent.balance,
+            spentToday: data.agent.spentToday,
+          }
+        : currentAgent
+    )
+  );
+}
+  } catch {
+    setPaymentResult({
+      approved: false,
+      reason: "Unable to connect to payment API",
+    });
   }
 }
 

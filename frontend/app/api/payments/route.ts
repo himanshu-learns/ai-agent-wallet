@@ -110,6 +110,11 @@ const transaction = createTransaction(
     amount: body.amount,
   },
   transaction,
+   agent: {
+    id: agent.id,
+    balance: agent.balance,
+    spentToday: agent.spentToday,
+  },
 });
   } catch {
     return NextResponse.json(
