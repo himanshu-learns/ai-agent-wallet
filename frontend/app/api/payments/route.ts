@@ -92,6 +92,8 @@ if (!agent) {
   );
 }
 
+const updatedAgent = findAgent(agent.id);
+
 const transaction = createTransaction(
   agent.id,
   body.merchant,
@@ -110,11 +112,13 @@ const transaction = createTransaction(
     amount: body.amount,
   },
   transaction,
-   agent: {
-    id: agent.id,
-    balance: agent.balance,
-    spentToday: agent.spentToday,
-  },
+ agent: updatedAgent
+  ? {
+      id: updatedAgent.id,
+      balance: updatedAgent.balance,
+      spentToday: updatedAgent.spentToday,
+    }
+  : null,
 });
   } catch {
     return NextResponse.json(
