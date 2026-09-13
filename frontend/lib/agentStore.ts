@@ -33,3 +33,25 @@ export function updateAgentAfterPayment(
 
   return true;
 }
+export function createAgent(
+  name: string,
+  balance: number,
+  dailyLimit: number,
+  transactionLimit: number
+): Agent {
+  const newAgent: Agent = {
+    id: Date.now(),
+    name,
+    balance,
+    dailyLimit,
+    transactionLimit,
+    active: true,
+    spentToday: 0,
+    apiKey: `sandbox-agent-key-${Date.now()}`,
+    allowedMerchants: ["OpenAI API", "AWS"],
+  };
+
+  agents.push(newAgent);
+
+  return newAgent;
+}

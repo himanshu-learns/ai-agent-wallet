@@ -89,29 +89,45 @@ const [paymentResult, setPaymentResult] = useState<{
 
   const activeAgents = agents.filter((agent) => agent.active).length;
 
-  function createAgent() {
-    if (!name.trim()) {
+  async function createAgent() {
+  if (!name.trim()) {
+    return;
+  }
+
+  try {
+    const response = await fetch("/api/agents", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: name.trim(),
+        balance: Number(balance),
+        dailyLimit: Number(dailyLimit),
+        transactionLimit: Number(transactionLimit),
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
       return;
     }
 
-    const newAgent: Agent = {
-      id: Date.now(),
-      name: name.trim(),
-      balance: Number(balance),
-      dailyLimit: Number(dailyLimit),
-      transactionLimit: Number(transactionLimit),
-      active: true,
-      spentToday: 0,
-    };
-
-    setAgents((currentAgents) => [...currentAgents, newAgent]);
+    setAgents((currentAgents) => [
+      ...currentAgents,
+      data.agent,
+    ]);
 
     setName("");
     setBalance("100");
     setDailyLimit("20");
     setTransactionLimit("5");
     setShowCreateForm(false);
+  } catch {
+    return;
   }
+}
 
 async function requestPayment() {
   const agent = agents.find(
@@ -127,7 +143,7 @@ async function requestPayment() {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-agent-api-key": "sandbox-agent-key-001",
+        "x-agent-api-key": agent.apiKey,
       },
       body: JSON.stringify({
         agentId: agent.id,
@@ -334,7 +350,7 @@ async function requestPayment() {
                       </span>
                     </div>
 
-                    <div className="mt-4 grid gap-4 text-sm sm:grid-cols-3">
+                    <div className="mt-4 grid gap-4 text-sm sm:grid-cols-4">
                       <div>
                         <p className="text-slate-500">
                           Wallet Balance
@@ -343,6 +359,27 @@ async function requestPayment() {
                           ${agent.balance.toFixed(2)}
                         </p>
                       </div>
+
+                      <div>
+  <p className="text-slate-500">
+    API Key
+  </p>
+
+  <div className="mt-1 flex items-center gap-2">
+    <code className="max-w-[180px] truncate font-mono text-xs text-slate-300">
+      {agent.apiKey}
+    </code>
+
+    <button
+      onClick={() =>
+        navigator.clipboard.writeText(agent.apiKey)
+      }
+      className="rounded-md border border-slate-700 px-2 py-1 text-xs text-slate-300 hover:bg-slate-800"
+    >
+      Copy
+    </button>
+  </div>
+</div>
 
                       <div>
                         <p className="text-slate-500">
