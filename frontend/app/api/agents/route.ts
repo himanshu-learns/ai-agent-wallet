@@ -5,14 +5,21 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    const { name, balance, dailyLimit, transactionLimit } = body;
+  const {
+  name,
+  balance,
+  dailyLimit,
+  transactionLimit,
+  allowedMerchants,
+} = body;
 
     if (
       typeof name !== "string" ||
       !name.trim() ||
       typeof balance !== "number" ||
       typeof dailyLimit !== "number" ||
-      typeof transactionLimit !== "number"
+      typeof transactionLimit !== "number" ||
+      !Array.isArray(allowedMerchants)
     ) {
       return NextResponse.json(
         {
@@ -27,7 +34,8 @@ export async function POST(request: Request) {
       name.trim(),
       balance,
       dailyLimit,
-      transactionLimit
+      transactionLimit,
+      allowedMerchants
     );
 
     return NextResponse.json({

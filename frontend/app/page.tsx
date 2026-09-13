@@ -76,6 +76,10 @@ export default function Home() {
   const [paymentMerchant, setPaymentMerchant] = useState("");
   const [paymentAmount, setPaymentAmount] = useState("");
   const [selectedAgentId, setSelectedAgentId] = useState(1);
+  const [selectedMerchants, setSelectedMerchants] = useState<string[]>([
+  "OpenAI API",
+  "AWS",
+]);
 
 const [paymentResult, setPaymentResult] = useState<{
   approved: boolean;
@@ -105,6 +109,7 @@ const [paymentResult, setPaymentResult] = useState<{
         balance: Number(balance),
         dailyLimit: Number(dailyLimit),
         transactionLimit: Number(transactionLimit),
+        allowedMerchants: selectedMerchants,
       }),
     });
 
@@ -123,6 +128,7 @@ const [paymentResult, setPaymentResult] = useState<{
     setBalance("100");
     setDailyLimit("20");
     setTransactionLimit("5");
+    setSelectedMerchants(["OpenAI API", "AWS"]);
     setShowCreateForm(false);
   } catch {
     return;
@@ -306,6 +312,35 @@ async function requestPayment() {
                   />
                 </div>
               </div>
+
+              <div>
+  <label className="text-sm text-slate-400">
+    Allowed Merchants
+  </label>
+
+  <div className="mt-3 space-y-2">
+    {["OpenAI API", "AWS"].map((merchant) => (
+      <label
+        key={merchant}
+        className="flex items-center gap-2 text-sm"
+      >
+        <input
+          type="checkbox"
+          checked={selectedMerchants.includes(merchant)}
+          onChange={(event) => {
+            setSelectedMerchants((current) =>
+              event.target.checked
+                ? [...current, merchant]
+                : current.filter((item) => item !== merchant)
+            );
+          }}
+        />
+
+        <span>{merchant}</span>
+      </label>
+    ))}
+  </div>
+</div>
 
               <div className="mt-6 flex gap-3">
                 <button

@@ -37,7 +37,8 @@ export function createAgent(
   name: string,
   balance: number,
   dailyLimit: number,
-  transactionLimit: number
+  transactionLimit: number,
+  allowedMerchants: string[]
 ): Agent {
   const newAgent: Agent = {
     id: Date.now(),
@@ -48,7 +49,7 @@ export function createAgent(
     active: true,
     spentToday: 0,
     apiKey: `sandbox-agent-key-${Date.now()}`,
-    allowedMerchants: ["OpenAI API", "AWS"],
+    allowedMerchants,
   };
 
   agents.push(newAgent);
