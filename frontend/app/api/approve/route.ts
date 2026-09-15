@@ -52,6 +52,26 @@ export async function POST(request: Request) {
       );
     }
 
+  if (!agent.active) {
+  return NextResponse.json(
+    {
+      success: false,
+      reason: "Agent is inactive",
+    },
+    { status: 400 }
+  );
+}
+
+if (!agent.allowedMerchants.includes(transaction.merchant)) {
+  return NextResponse.json(
+    {
+      success: false,
+      reason: "Merchant is no longer allowed",
+    },
+    { status: 400 }
+  );
+}
+
     if (transaction.amount > agent.balance) {
       return NextResponse.json(
         {
