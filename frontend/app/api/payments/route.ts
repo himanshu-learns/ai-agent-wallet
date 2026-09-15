@@ -98,7 +98,11 @@ const transaction = createTransaction(
   agent.id,
   body.merchant,
   body.amount,
-  decision.approved,
+  decision.requiresApproval
+  ? "Pending"
+  : decision.approved
+    ? "Approved"
+    : "Blocked",
   decision.reason
 );
 

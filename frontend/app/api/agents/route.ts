@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server";
-import { createAgent } from "../../../lib/agentStore";
+import { agents } from "../../../lib/agentStore";
+
+export async function GET() {
+  return NextResponse.json({
+    success: true,
+    agents,
+  });
+}
 
 export async function POST(request: Request) {
   try {

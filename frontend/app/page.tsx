@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   evaluatePayment,
   type PaymentRequest,
@@ -19,6 +19,7 @@ type Agent = {
   transactionLimit: number;
   active: boolean;
   spentToday: number;
+  apiKey: string;
 };
 
 const initialAgents: Agent[] = [
@@ -30,6 +31,7 @@ const initialAgents: Agent[] = [
     transactionLimit: 5,
     active: true,
     spentToday: 0,
+    apiKey: "sandbox-agent-key-001",
   },
 ];
 
@@ -65,8 +67,49 @@ const initialTransactions: Transaction[] = [
 
 export default function Home() {
   const [agents, setAgents] = useState<Agent[]>(initialAgents);
-  const [transactions, setTransactions] =
+  useEffect(() => {
+  async function loadAgents() {
+    try {
+      const response = await fetch("/api/agents");
+      const data = await response.json();
+
+      if (response.ok && Array.isArray(data.agents)) {
+        setAgents(data.agents);
+
+        if (data.agents.length > 0) {
+          setSelectedAgentId(data.agents[0].id);
+        }
+      }
+    } catch {
+      return;
+    }
+  }
+
+  loadAgents();
+}, []);
+  const [transactions, setTransactions] = 
   useState<Transaction[]>(initialTransactions);
+  
+  useEffect(() => {
+  async function loadTransactions() {
+    try {
+      const response = await fetch("/api/transactions");
+      const data = await response.json();
+
+      if (
+        response.ok &&
+        Array.isArray(data.transactions)
+      ) {
+        setTransactions(data.transactions);
+      }
+    } catch {
+      return;
+    }
+  }
+
+  loadTransactions();
+}, []);
+
   const [showCreateForm, setShowCreateForm] = useState(false);
 
   const [name, setName] = useState("");
@@ -89,6 +132,11 @@ const [paymentResult, setPaymentResult] = useState<{
   const totalBalance = agents.reduce(
     (total, agent) => total + agent.balance,
     0
+  );
+
+  const totalSpending = agents.reduce(
+  (total, agent) => total + agent.spentToday,
+  0
   );
 
   const activeAgents = agents.filter((agent) => agent.active).length;
@@ -192,6 +240,90 @@ async function requestPayment() {
   }
 }
 
+async function approvePayment(transactionId: number) {
+  try {
+    const response = await fetch("/api/approve", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        transactionId,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+  setPaymentResult({
+    approved: false,
+    reason: data.reason,
+  });
+  return;
+}
+
+    if (data.transaction) {
+      setTransactions((currentTransactions) =>
+        currentTransactions.map((transaction) =>
+          transaction.id === data.transaction.id
+            ? data.transaction
+            : transaction
+        )
+      );
+    }
+
+    setPaymentResult(null);
+
+    if (data.agent) {
+      setAgents((currentAgents) =>
+        currentAgents.map((agent) =>
+          agent.id === data.agent.id
+            ? {
+                ...agent,
+                balance: data.agent.balance,
+                spentToday: data.agent.spentToday,
+              }
+            : agent
+        )
+      );
+    }
+  } catch {
+    return;
+  }
+}
+
+async function rejectPayment(transactionId: number) {
+  try {
+    const response = await fetch("/api/reject", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        transactionId,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return;
+    }
+
+    if (data.transaction) {
+      setTransactions((currentTransactions) =>
+        currentTransactions.map((transaction) =>
+          transaction.id === data.transaction.id
+            ? data.transaction
+            : transaction
+        )
+      );
+    }
+  } catch {
+    return;
+  }
+}
+
   function toggleAgent(id: number) {
     setAgents((currentAgents) =>
       currentAgents.map((agent) =>
@@ -235,7 +367,9 @@ async function requestPayment() {
 
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
             <p className="text-sm text-slate-400">Today's Spending</p>
-            <p className="mt-2 text-3xl font-bold">$2.15</p>
+            <p className="mt-2 text-3xl font-bold">
+            ${totalSpending.toFixed(2)}
+            </p>
           </div>
         </section>
 
@@ -547,6 +681,55 @@ async function requestPayment() {
           {paymentResult.reason}
         </p>
       </div>
+    )}
+  </div>
+</section>
+
+        {/* Pending Approvals */}
+<section className="mt-8">
+  <h2 className="mb-4 text-xl font-semibold">
+    Pending Approvals
+  </h2>
+
+  <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900">
+    {transactions.filter(
+      (transaction) => transaction.status === "Pending"
+    ).length === 0 ? (
+      <div className="p-5 text-sm text-slate-500">
+        No pending approvals
+      </div>
+    ) : (
+      transactions
+        .filter((transaction) => transaction.status === "Pending")
+        .map((transaction) => (
+          <div
+            key={transaction.id}
+            className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between"
+          >
+            <div>
+              <p className="font-medium">{transaction.merchant}</p>
+              <p className="text-sm text-slate-500">
+                Payment request · ${transaction.amount.toFixed(2)}
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => approvePayment(transaction.id)}
+                className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-slate-950"
+              >
+                Approve
+              </button>
+
+              <button
+                onClick={() => rejectPayment(transaction.id)}
+                className="rounded-lg border border-red-500/30 px-4 py-2 text-sm font-medium text-red-400"
+              >
+                Reject
+              </button>
+            </div>
+          </div>
+        ))
     )}
   </div>
 </section>

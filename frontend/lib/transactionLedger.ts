@@ -3,7 +3,7 @@ export type Transaction = {
   agentId: number;
   merchant: string;
   amount: number;
-  status: "Approved" | "Blocked";
+  status: "Approved" | "Blocked" | "Pending" | "Rejected";
   reason: string;
   createdAt: string;
 };
@@ -14,7 +14,7 @@ export function createTransaction(
   agentId: number,
   merchant: string,
   amount: number,
-  approved: boolean,
+  status: "Approved" | "Blocked" | "Pending" | "Rejected",
   reason: string
 ): Transaction {
   const transaction: Transaction = {
@@ -22,7 +22,7 @@ export function createTransaction(
     agentId,
     merchant,
     amount,
-    status: approved ? "Approved" : "Blocked",
+    status,
     reason,
     createdAt: new Date().toISOString(),
   };
@@ -30,4 +30,36 @@ export function createTransaction(
   transactions.unshift(transaction);
 
   return transaction;
+}
+
+export function findTransaction(transactionId: number) {
+  return transactions.find(
+    (transaction) => transaction.id === transactionId
+  );
+}
+
+export function approveTransaction(transactionId: number): boolean {
+  const transaction = findTransaction(transactionId);
+
+  if (!transaction || transaction.status !== "Pending") {
+    return false;
+  }
+
+  transaction.status = "Approved";
+  transaction.reason = "Payment approved by user";
+
+  return true;
+}
+
+export function rejectTransaction(transactionId: number): boolean {
+  const transaction = findTransaction(transactionId);
+
+  if (!transaction || transaction.status !== "Pending") {
+    return false;
+  }
+
+  transaction.status = "Rejected";
+  transaction.reason = "Payment rejected by user";
+
+  return true;
 }

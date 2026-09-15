@@ -18,6 +18,7 @@ export type PaymentRequest = {
 
 export type PaymentDecision = {
   approved: boolean;
+  requiresApproval?: boolean;
   reason: string;
 };
 
@@ -50,14 +51,15 @@ export function evaluatePayment(
   }
 
   // 4. Check per-transaction limit
-  if (request.amount > agent.transactionLimit) {
-    return {
-      approved: false,
-      reason: `Payment exceeds transaction limit of $${agent.transactionLimit.toFixed(
-        2
-      )}`,
-    };
-  }
+ if (request.amount > agent.transactionLimit) {
+  return {
+    approved: false,
+    requiresApproval: true,
+    reason: `Payment exceeds transaction limit of $${agent.transactionLimit.toFixed(
+      2
+    )}`,
+  };
+}
 
   // 5. Check daily spending limit
   const spentToday = agent.spentToday ?? 0;
