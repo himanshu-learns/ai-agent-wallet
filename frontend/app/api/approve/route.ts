@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
-import { findTransaction, approveTransaction } from "../../../lib/transactionLedger";
-import { findAgent, updateAgentAfterPayment } from "../../../lib/agentStore";
+import {
+  findTransaction,
+  approveTransaction,
+} from "../../../lib/transactionLedger";
+import {
+  findAgent,
+  updateAgentAfterPayment,
+} from "../../../lib/agentStore";
 
 export async function POST(request: Request) {
   try {
@@ -40,7 +46,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const agent = findAgent(transaction.agentId);
+    const agent = await findAgent(transaction.agentId);
 
     if (!agent) {
       return NextResponse.json(
@@ -52,25 +58,25 @@ export async function POST(request: Request) {
       );
     }
 
-  if (!agent.active) {
-  return NextResponse.json(
-    {
-      success: false,
-      reason: "Agent is inactive",
-    },
-    { status: 400 }
-  );
-}
+    if (!agent.active) {
+      return NextResponse.json(
+        {
+          success: false,
+          reason: "Agent is inactive",
+        },
+        { status: 400 }
+      );
+    }
 
-if (!agent.allowedMerchants.includes(transaction.merchant)) {
-  return NextResponse.json(
-    {
-      success: false,
-      reason: "Merchant is no longer allowed",
-    },
-    { status: 400 }
-  );
-}
+    if (!agent.allowedMerchants.includes(transaction.merchant)) {
+      return NextResponse.json(
+        {
+          success: false,
+          reason: "Merchant is no longer allowed",
+        },
+        { status: 400 }
+      );
+    }
 
     if (transaction.amount > agent.balance) {
       return NextResponse.json(
@@ -82,17 +88,20 @@ if (!agent.allowedMerchants.includes(transaction.merchant)) {
       );
     }
 
-    if (agent.spentToday + transaction.amount > agent.dailyLimit) {
-  return NextResponse.json(
-    {
-      success: false,
-      reason: `Payment would exceed daily spending limit of $${agent.dailyLimit.toFixed(
-        2
-      )}`,
-    },
-    { status: 400 }
-  );
-}
+    if (
+      (agent.spentToday ?? 0) + transaction.amount >
+      agent.dailyLimit
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          reason: `Payment would exceed daily spending limit of $${agent.dailyLimit.toFixed(
+            2
+          )}`,
+        },
+        { status: 400 }
+      );
+    }
 
     const approved = approveTransaction(transaction.id);
 
@@ -106,19 +115,33 @@ if (!agent.allowedMerchants.includes(transaction.merchant)) {
       );
     }
 
-    updateAgentAfterPayment(
+    const updated = await updateAgentAfterPayment(
       agent.id,
       transaction.amount
     );
 
+    if (!updated) {
+      return NextResponse.json(
+        {
+          success: false,
+          reason: "Transaction approved but failed to update agent balance",
+        },
+        { status: 500 }
+      );
+    }
+
+    const updatedAgent = await findAgent(agent.id);
+
     return NextResponse.json({
       success: true,
       transaction,
-      agent: {
-        id: agent.id,
-        balance: agent.balance,
-        spentToday: agent.spentToday,
-      },
+      agent: updatedAgent
+        ? {
+            id: updatedAgent.id,
+            balance: updatedAgent.balance,
+            spentToday: updatedAgent.spentToday,
+          }
+        : null,
     });
   } catch {
     return NextResponse.json(

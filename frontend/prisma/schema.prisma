@@ -1,0 +1,35 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Agent {
+  id                Int      @id @default(autoincrement())
+  name              String
+  balance           Float
+  dailyLimit        Float
+  transactionLimit  Float
+  active            Boolean  @default(true)
+  spentToday        Float    @default(0)
+  apiKey            String   @unique
+
+  allowedMerchants  String
+
+  transactions      Transaction[]
+}
+
+model Transaction {
+  id          Int      @id @default(autoincrement())
+  agentId     Int
+  merchant    String
+  amount      Float
+  status      String
+  reason      String
+  createdAt   DateTime @default(now())
+
+  agent       Agent @relation(fields: [agentId], references: [id])
+}

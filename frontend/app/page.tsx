@@ -183,6 +183,41 @@ const [paymentResult, setPaymentResult] = useState<{
   }
 }
 
+async function toggleAgent(agentId: number) {
+  try {
+    const response = await fetch("/api/agents/toggle", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        agentId,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return;
+    }
+
+    if (data.agent) {
+      setAgents((currentAgents) =>
+        currentAgents.map((agent) =>
+          agent.id === data.agent.id
+            ? {
+                ...agent,
+                active: data.agent.active,
+              }
+            : agent
+        )
+      );
+    }
+  } catch {
+    return;
+  }
+}
+
 async function requestPayment() {
   const agent = agents.find(
     (agent) => agent.id === selectedAgentId
@@ -323,16 +358,6 @@ async function rejectPayment(transactionId: number) {
     return;
   }
 }
-
-  function toggleAgent(id: number) {
-    setAgents((currentAgents) =>
-      currentAgents.map((agent) =>
-        agent.id === id
-          ? { ...agent, active: !agent.active }
-          : agent
-      )
-    );
-  }
 
   return (
     <main className="min-h-screen bg-slate-950 text-white">

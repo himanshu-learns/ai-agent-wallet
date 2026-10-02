@@ -45,7 +45,7 @@ export async function POST(request: Request) {
 
     // Temporary sandbox agent.
     // Database se agents connect karna next phase mein karenge.
-const agent = findAgent(body.agentId);
+const agent = await findAgent(body.agentId);
 if (!agent) {
   return NextResponse.json(
     {
@@ -86,13 +86,13 @@ if (!agent) {
     });
 
     if (decision.approved) {
-  updateAgentAfterPayment(
-    agent.id,
-    body.amount
-  );
+  await updateAgentAfterPayment(
+  agent.id,
+  body.amount
+);
 }
 
-const updatedAgent = findAgent(agent.id);
+const updatedAgent = await findAgent(agent.id);
 
 const transaction = createTransaction(
   agent.id,

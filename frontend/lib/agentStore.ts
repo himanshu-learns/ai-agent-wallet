@@ -1,58 +1,109 @@
 import type { Agent } from "./paymentEngine";
+import { supabase } from "./supabase";
 
-export const agents: Agent[] = [
-  {
-    id: 1,
-    name: "Coding Agent",
-    balance: 100,
-    dailyLimit: 20,
-    transactionLimit: 5,
-    active: true,
-    spentToday: 0,
-    apiKey: "sandbox-agent-key-001",
-    allowedMerchants: ["OpenAI API", "AWS"],
-  },
-];
-
-export function findAgent(agentId: number) {
-  return agents.find((agent) => agent.id === agentId);
+function mapAgent(row: any): Agent {
+  return {
+    id: row.id,
+    name: row.name,
+    balance: Number(row.balance),
+    dailyLimit: Number(row.daily_limit),
+    transactionLimit: Number(row.transaction_limit),
+    active: row.active,
+    spentToday: Number(row.spent_today),
+    apiKey: row.api_key,
+    allowedMerchants: row.allowed_merchants ?? [],
+  };
 }
 
-export function updateAgentAfterPayment(
+export async function findAgent(agentId: number) {
+  const { data, error } = await supabase
+    .from("agents")
+    .select("*")
+    .eq("id", agentId)
+    .single();
+
+  if (error || !data) {
+    return undefined;
+  }
+
+  return mapAgent(data);
+}
+
+export async function updateAgentAfterPayment(
   agentId: number,
   amount: number
 ) {
-  const agent = findAgent(agentId);
+  const agent = await findAgent(agentId);
 
   if (!agent) {
     return false;
   }
 
-  agent.balance -= amount;
-  agent.spentToday += amount;
+  const newBalance = agent.balance - amount;
+  const newSpentToday = (agent.spentToday ?? 0) + amount;
 
-  return true;
+  const { data, error } = await supabase
+    .from("agents")
+    .update({
+      balance: newBalance,
+      spent_today: newSpentToday,
+    })
+    .eq("id", agentId)
+    .select()
+    .single();
+
+  return !error;
 }
-export function createAgent(
+export async function toggleAgent(agentId: number) {
+  const agent = await findAgent(agentId);
+
+  if (!agent) {
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from("agents")
+    .update({
+      active: !agent.active,
+    })
+    .eq("id", agentId)
+    .select()
+    .single();
+
+  if (error || !data) {
+    return null;
+  }
+
+  return mapAgent(data);
+}
+
+export async function createAgent(
   name: string,
   balance: number,
   dailyLimit: number,
   transactionLimit: number,
   allowedMerchants: string[]
-): Agent {
-  const newAgent: Agent = {
-    id: Date.now(),
-    name,
-    balance,
-    dailyLimit,
-    transactionLimit,
-    active: true,
-    spentToday: 0,
-    apiKey: `sandbox-agent-key-${Date.now()}`,
-    allowedMerchants,
-  };
+): Promise<Agent | null> {
+  const apiKey = `sandbox-agent-key-${Date.now()}`;
 
-  agents.push(newAgent);
+  const { data, error } = await supabase
+    .from("agents")
+    .insert({
+      name,
+      balance,
+      daily_limit: dailyLimit,
+      transaction_limit: transactionLimit,
+      active: true,
+      spent_today: 0,
+      api_key: apiKey,
+      allowed_merchants: allowedMerchants,
+    })
+    .select()
+    .single();
 
-  return newAgent;
+  if (error || !data) {
+    return null;
+  }
+
+  return mapAgent(data);
 }
