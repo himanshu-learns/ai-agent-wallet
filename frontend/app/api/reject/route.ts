@@ -17,7 +17,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const transaction = findTransaction(transactionId);
+    const transaction = await findTransaction(transactionId);
 
     if (!transaction) {
       return NextResponse.json(
@@ -39,7 +39,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const rejected = rejectTransaction(transaction.id);
+    const rejected = await rejectTransaction(transaction.id);
 
     if (!rejected) {
       return NextResponse.json(
@@ -51,9 +51,21 @@ export async function POST(request: Request) {
       );
     }
 
+    const updatedTransaction = await findTransaction(transaction.id);
+
+if (!updatedTransaction) {
+  return NextResponse.json(
+    {
+      success: false,
+      reason: "Transaction could not be reloaded",
+    },
+    { status: 500 }
+  );
+}
+
     return NextResponse.json({
       success: true,
-      transaction,
+      transaction: updatedTransaction,
     });
   } catch {
     return NextResponse.json(

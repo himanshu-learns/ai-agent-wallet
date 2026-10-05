@@ -1,3 +1,5 @@
+import { supabase } from "./supabase";
+
 export type Transaction = {
   id: number;
   agentId: number;
@@ -10,56 +12,109 @@ export type Transaction = {
 
 export const transactions: Transaction[] = [];
 
-export function createTransaction(
+export async function createTransaction(
   agentId: number,
   merchant: string,
   amount: number,
   status: "Approved" | "Blocked" | "Pending" | "Rejected",
   reason: string
-): Transaction {
-  const transaction: Transaction = {
-    id: Date.now(),
-    agentId,
-    merchant,
-    amount,
-    status,
-    reason,
-    createdAt: new Date().toISOString(),
+): Promise<Transaction | null> {
+  const { data, error } = await supabase
+    .from("transactions")
+    .insert({
+      agent_id: agentId,
+      merchant,
+      amount,
+      status,
+      reason,
+    })
+    .select()
+    .single();
+
+  if (error || !data) {
+    console.error("CREATE TRANSACTION ERROR:", error);
+    return null;
+  }
+
+  return {
+    id: data.id,
+    agentId: data.agent_id,
+    merchant: data.merchant,
+    amount: Number(data.amount),
+    status: data.status,
+    reason: data.reason,
+    createdAt: data.created_at,
   };
-
-  transactions.unshift(transaction);
-
-  return transaction;
 }
 
-export function findTransaction(transactionId: number) {
-  return transactions.find(
-    (transaction) => transaction.id === transactionId
-  );
+export async function findTransaction(
+  transactionId: number
+): Promise<Transaction | null> {
+  const { data, error } = await supabase
+    .from("transactions")
+    .select("*")
+    .eq("id", transactionId)
+    .single();
+
+  if (error || !data) {
+    console.error("FIND TRANSACTION ERROR:", error);
+    return null;
+  }
+
+  return {
+    id: data.id,
+    agentId: data.agent_id,
+    merchant: data.merchant,
+    amount: Number(data.amount),
+    status: data.status,
+    reason: data.reason,
+    createdAt: data.created_at,
+  };
 }
 
-export function approveTransaction(transactionId: number): boolean {
-  const transaction = findTransaction(transactionId);
+export async function approveTransaction(
+  transactionId: number
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("transactions")
+    .update({
+      status: "Approved",
+      reason: "Payment approved by user",
+    })
+    .eq("id", transactionId)
+    .eq("status", "Pending")
+    .select()
+    .maybeSingle();
+
+  if (error) {
+    console.error("APPROVE TRANSACTION ERROR:", error);
+    return false;
+  }
+
+  return !!data;
+}
+
+export async function rejectTransaction(
+  transactionId: number
+): Promise<boolean> {
+  const transaction = await findTransaction(transactionId);
 
   if (!transaction || transaction.status !== "Pending") {
     return false;
   }
 
-  transaction.status = "Approved";
-  transaction.reason = "Payment approved by user";
+  const { error } = await supabase
+    .from("transactions")
+    .update({
+      status: "Rejected",
+      reason: "Payment rejected by user",
+    })
+    .eq("id", transactionId);
 
-  return true;
-}
-
-export function rejectTransaction(transactionId: number): boolean {
-  const transaction = findTransaction(transactionId);
-
-  if (!transaction || transaction.status !== "Pending") {
+  if (error) {
+    console.error("REJECT TRANSACTION ERROR:", error);
     return false;
   }
-
-  transaction.status = "Rejected";
-  transaction.reason = "Payment rejected by user";
 
   return true;
 }

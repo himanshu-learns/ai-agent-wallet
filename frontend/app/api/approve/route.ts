@@ -1,12 +1,8 @@
+
 import { NextResponse } from "next/server";
-import {
-  findTransaction,
-  approveTransaction,
-} from "../../../lib/transactionLedger";
-import {
-  findAgent,
-  updateAgentAfterPayment,
-} from "../../../lib/agentStore";
+import { findTransaction } from "../../../lib/transactionLedger";
+import { supabase } from "../../../lib/supabase";
+import { findAgent } from "../../../lib/agentStore";
 
 export async function POST(request: Request) {
   try {
@@ -24,7 +20,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const transaction = findTransaction(transactionId);
+    const transaction = await findTransaction(transactionId);
 
     if (!transaction) {
       return NextResponse.json(
@@ -103,45 +99,58 @@ export async function POST(request: Request) {
       );
     }
 
-    const approved = approveTransaction(transaction.id);
+    // Perform approval atomically in Supabase.
+    const { data: approvalResult, error: approvalError } =
+      await supabase.rpc("approve_transaction_atomic", {
+        p_transaction_id: transaction.id,
+      });
 
-    if (!approved) {
+    if (approvalError) {
+      console.error("ATOMIC APPROVAL ERROR:", approvalError);
+
       return NextResponse.json(
         {
           success: false,
           reason: "Unable to approve transaction",
         },
+        { status: 500 }
+      );
+    }
+
+    if (!approvalResult?.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          reason:
+            approvalResult?.reason ??
+            "Transaction could not be approved",
+        },
         { status: 400 }
       );
     }
 
-    const updated = await updateAgentAfterPayment(
-      agent.id,
-      transaction.amount
-    );
+    // Fetch fresh database state after atomic approval.
+    const updatedTransaction = await findTransaction(transaction.id);
+    const updatedAgent = await findAgent(agent.id);
 
-    if (!updated) {
+    if (!updatedTransaction || !updatedAgent) {
       return NextResponse.json(
         {
           success: false,
-          reason: "Transaction approved but failed to update agent balance",
+          reason: "Approved transaction could not be reloaded",
         },
         { status: 500 }
       );
     }
 
-    const updatedAgent = await findAgent(agent.id);
-
     return NextResponse.json({
       success: true,
-      transaction,
-      agent: updatedAgent
-        ? {
-            id: updatedAgent.id,
-            balance: updatedAgent.balance,
-            spentToday: updatedAgent.spentToday,
-          }
-        : null,
+      transaction: updatedTransaction,
+      agent: {
+        id: updatedAgent.id,
+        balance: updatedAgent.balance,
+        spentToday: updatedAgent.spentToday,
+      },
     });
   } catch {
     return NextResponse.json(
@@ -153,3 +162,4 @@ export async function POST(request: Request) {
     );
   }
 }
+

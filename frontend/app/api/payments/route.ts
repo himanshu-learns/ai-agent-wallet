@@ -94,7 +94,7 @@ if (!agent) {
 
 const updatedAgent = await findAgent(agent.id);
 
-const transaction = createTransaction(
+const transaction = await createTransaction(
   agent.id,
   body.merchant,
   body.amount,
