@@ -42,63 +42,6 @@ export async function POST(request: Request) {
       );
     }
 
-    const agent = await findAgent(transaction.agentId);
-
-    if (!agent) {
-      return NextResponse.json(
-        {
-          success: false,
-          reason: "Agent not found",
-        },
-        { status: 404 }
-      );
-    }
-
-    if (!agent.active) {
-      return NextResponse.json(
-        {
-          success: false,
-          reason: "Agent is inactive",
-        },
-        { status: 400 }
-      );
-    }
-
-    if (!agent.allowedMerchants.includes(transaction.merchant)) {
-      return NextResponse.json(
-        {
-          success: false,
-          reason: "Merchant is no longer allowed",
-        },
-        { status: 400 }
-      );
-    }
-
-    if (transaction.amount > agent.balance) {
-      return NextResponse.json(
-        {
-          success: false,
-          reason: "Insufficient wallet balance",
-        },
-        { status: 400 }
-      );
-    }
-
-    if (
-      (agent.spentToday ?? 0) + transaction.amount >
-      agent.dailyLimit
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          reason: `Payment would exceed daily spending limit of $${agent.dailyLimit.toFixed(
-            2
-          )}`,
-        },
-        { status: 400 }
-      );
-    }
-
     // Perform approval atomically in Supabase.
     const { data: approvalResult, error: approvalError } =
       await supabase.rpc("approve_transaction_atomic", {
@@ -131,7 +74,7 @@ export async function POST(request: Request) {
 
     // Fetch fresh database state after atomic approval.
     const updatedTransaction = await findTransaction(transaction.id);
-    const updatedAgent = await findAgent(agent.id);
+    const updatedAgent = await findAgent(transaction.agentId);
 
     if (!updatedTransaction || !updatedAgent) {
       return NextResponse.json(
