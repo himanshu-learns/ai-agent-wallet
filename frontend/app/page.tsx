@@ -327,8 +327,12 @@ async function approvePayment(transactionId: number) {
         )
       );
     }
-  } catch {
-    return;
+  } catch (error) {
+    console.error("APPROVE PAYMENT ERROR:", error);
+    setPaymentResult({
+      approved: false,
+      reason: "Unable to complete approval. Please try again.",
+    });
   }
 }
 
