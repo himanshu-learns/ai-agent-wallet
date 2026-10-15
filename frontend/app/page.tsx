@@ -778,6 +778,9 @@ async function rejectPayment(transactionId: number) {
               >
                 <div>
                   <p className="font-medium">{transaction.merchant}</p>
+                  <p className="text-xs text-slate-500">
+  Transaction ID: {transaction.id}
+</p>
                   <p className="text-sm text-slate-500">
                   {isMounted
   ? new Date(transaction.createdAt).toLocaleString("en-IN", {
@@ -791,15 +794,21 @@ async function rejectPayment(transactionId: number) {
                 <div className="flex items-center gap-6">
                   <p className="font-medium">${transaction.amount.toFixed(2)}</p>
 
-                  <span
-                    className={`rounded-full px-3 py-1 text-xs font-medium ${
-                      transaction.status === "Approved"
-                        ? "bg-emerald-500/10 text-emerald-400"
-                        : "bg-red-500/10 text-red-400"
-                    }`}
-                  >
-                    {transaction.status}
-                  </span>
+                  
+<span
+  className={`rounded-full px-3 py-1 text-xs font-medium ${
+    transaction.status === "Approved"
+      ? "bg-emerald-500/10 text-emerald-400"
+      : transaction.status === "Pending"
+        ? "bg-amber-500/10 text-amber-400"
+        : transaction.status === "Blocked"
+          ? "bg-red-500/10 text-red-400"
+          : "bg-slate-500/10 text-slate-400"
+  }`}
+>
+  {transaction.status}
+</span>
+
                 </div>
               </div>
             ))}
