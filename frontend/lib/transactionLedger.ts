@@ -10,8 +10,6 @@ export type Transaction = {
   createdAt: string;
 };
 
-export const transactions: Transaction[] = [];
-
 export async function createTransaction(
   agentId: number,
   merchant: string,
@@ -70,28 +68,6 @@ export async function findTransaction(
     reason: data.reason,
     createdAt: data.created_at,
   };
-}
-
-export async function approveTransaction(
-  transactionId: number
-): Promise<boolean> {
-  const { data, error } = await supabase
-    .from("transactions")
-    .update({
-      status: "Approved",
-      reason: "Payment approved by user",
-    })
-    .eq("id", transactionId)
-    .eq("status", "Pending")
-    .select()
-    .maybeSingle();
-
-  if (error) {
-    console.error("APPROVE TRANSACTION ERROR:", error);
-    return false;
-  }
-
-  return !!data;
 }
 
 export async function rejectTransaction(

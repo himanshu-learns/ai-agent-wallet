@@ -112,6 +112,7 @@ export default function Home() {
 
   const [showCreateForm, setShowCreateForm] = useState(false);
 
+  const [isMounted, setIsMounted] = useState(false);
   const [name, setName] = useState("");
   const [balance, setBalance] = useState("100");
   const [dailyLimit, setDailyLimit] = useState("20");
@@ -123,6 +124,10 @@ export default function Home() {
   "OpenAI API",
   "AWS",
 ]);
+
+useEffect(() => {
+  setIsMounted(true);
+}, []);
 
 const [paymentResult, setPaymentResult] = useState<{
   approved: boolean;
@@ -774,7 +779,12 @@ async function rejectPayment(transactionId: number) {
                 <div>
                   <p className="font-medium">{transaction.merchant}</p>
                   <p className="text-sm text-slate-500">
-                    {new Date(transaction.createdAt).toLocaleString()}
+                  {isMounted
+  ? new Date(transaction.createdAt).toLocaleString("en-IN", {
+      timeZone: "Asia/Kolkata",
+    })
+  : ""}
+
                   </p>
                 </div>
 

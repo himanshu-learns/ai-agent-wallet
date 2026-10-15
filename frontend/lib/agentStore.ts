@@ -29,31 +29,6 @@ export async function findAgent(agentId: number) {
   return mapAgent(data);
 }
 
-export async function updateAgentAfterPayment(
-  agentId: number,
-  amount: number
-) {
-  const agent = await findAgent(agentId);
-
-  if (!agent) {
-    return false;
-  }
-
-  const newBalance = agent.balance - amount;
-  const newSpentToday = (agent.spentToday ?? 0) + amount;
-
-  const { data, error } = await supabase
-    .from("agents")
-    .update({
-      balance: newBalance,
-      spent_today: newSpentToday,
-    })
-    .eq("id", agentId)
-    .select()
-    .single();
-
-  return !error;
-}
 export async function toggleAgent(agentId: number) {
   const agent = await findAgent(agentId);
 

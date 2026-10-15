@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server";
 import { evaluatePayment } from "../../../lib/paymentEngine";
-import {
-  findAgent,
-  updateAgentAfterPayment,
-} from "../../../lib/agentStore";
-import { createTransaction } from "../../../lib/transactionLedger";
+import { findAgent } from "../../../lib/agentStore";
+import { supabase } from "../../../lib/supabase";
+
 
 type PaymentRequest = {
   agentId: number;
@@ -68,48 +66,62 @@ if (agent.apiKey !== apiKey) {
   );
 }
 
-if (!agent) {
-  return NextResponse.json(
-    {
-      success: false,
-      approved: false,
-      reason: "Agent not found",
-    },
-    { status: 404 }
-  );
-}
-
     const decision = evaluatePayment(agent, {
       agentId: body.agentId,
       merchant: body.merchant,
       amount: body.amount,
     });
 
-    if (decision.approved) {
-  await updateAgentAfterPayment(
-  agent.id,
-  body.amount
-);
-}
 
-const updatedAgent = await findAgent(agent.id);
-
-const transaction = await createTransaction(
-  agent.id,
-  body.merchant,
-  body.amount,
-  decision.requiresApproval
+const paymentStatus = decision.requiresApproval
   ? "Pending"
   : decision.approved
     ? "Approved"
-    : "Blocked",
-  decision.reason
-);
+    : "Blocked";
+
+const { data: paymentResult, error: paymentError } =
+  await supabase.rpc("process_payment_atomic", {
+    p_agent_id: agent.id,
+    p_merchant: body.merchant,
+    p_amount: body.amount,
+    p_status: paymentStatus,
+    p_reason: decision.reason,
+  });
+
+if (paymentError) {
+  console.error("PROCESS PAYMENT ERROR:", paymentError);
+
+  return NextResponse.json(
+    {
+      success: false,
+      approved: false,
+      reason: "Unable to process payment",
+    },
+    { status: 500 }
+  );
+}
+
+if (!paymentResult?.success) {
+  return NextResponse.json(
+    {
+      success: false,
+      approved: false,
+      reason: paymentResult?.reason ?? "Payment rejected",
+    },
+    { status: 400 }
+  );
+}
+
+const transaction = paymentResult.transaction;
+
+
+const updatedAgent = await findAgent(agent.id);
+
 
     return NextResponse.json({
   success: true,
-  approved: decision.approved,
-  reason: decision.reason,
+ approved: transaction.status === "Approved",
+ reason: transaction.reason,
   payment: {
     agentId: body.agentId,
     merchant: body.merchant,
