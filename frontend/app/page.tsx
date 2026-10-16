@@ -351,8 +351,12 @@ async function rejectPayment(transactionId: number) {
     const data = await response.json();
 
     if (!response.ok) {
-      return;
-    }
+  setPaymentResult({
+    approved: false,
+    reason: data.reason || "Unable to reject payment. Please try again.",
+  });
+  return;
+}
 
     if (data.transaction) {
       setTransactions((currentTransactions) =>
@@ -363,10 +367,14 @@ async function rejectPayment(transactionId: number) {
         )
       );
     }
-  } catch {
-    return;
+  } catch (error) {
+   console.error("REJECT PAYMENT ERROR:", error);
+   setPaymentResult({
+      approved: false,
+      reason: "Unable to reject payment. Please try again.",
+     });
+    }
   }
-}
 
   return (
     <main className="min-h-screen bg-slate-950 text-white">
