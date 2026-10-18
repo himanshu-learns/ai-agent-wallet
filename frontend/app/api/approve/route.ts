@@ -1,4 +1,3 @@
-
 import { NextResponse } from "next/server";
 import { findTransaction } from "../../../lib/transactionLedger";
 import { supabase } from "../../../lib/supabase";
@@ -6,17 +5,33 @@ import { findAgent } from "../../../lib/agentStore";
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    let body: { transactionId?: unknown };
 
-    const transactionId = Number(body.transactionId);
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        {
+          success: false,
+          reason: "Invalid JSON request",
+        },
+        { status: 400 },
+      );
+    }
 
-    if (!Number.isFinite(transactionId)) {
+    const transactionId = body.transactionId;
+
+    if (
+      typeof transactionId !== "number" ||
+      !Number.isSafeInteger(transactionId) ||
+      transactionId <= 0
+    ) {
       return NextResponse.json(
         {
           success: false,
           reason: "Invalid transaction ID",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -28,7 +43,7 @@ export async function POST(request: Request) {
           success: false,
           reason: "Transaction not found",
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -38,15 +53,17 @@ export async function POST(request: Request) {
           success: false,
           reason: "Transaction is not pending",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     // Perform approval atomically in Supabase.
-    const { data: approvalResult, error: approvalError } =
-      await supabase.rpc("approve_transaction_atomic", {
+    const { data: approvalResult, error: approvalError } = await supabase.rpc(
+      "approve_transaction_atomic",
+      {
         p_transaction_id: transaction.id,
-      });
+      },
+    );
 
     if (approvalError) {
       console.error("ATOMIC APPROVAL ERROR:", approvalError);
@@ -56,7 +73,7 @@ export async function POST(request: Request) {
           success: false,
           reason: "Unable to approve transaction",
         },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -64,11 +81,9 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          reason:
-            approvalResult?.reason ??
-            "Transaction could not be approved",
+          reason: approvalResult?.reason ?? "Transaction could not be approved",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -82,7 +97,7 @@ export async function POST(request: Request) {
           success: false,
           reason: "Approved transaction could not be reloaded",
         },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -95,14 +110,15 @@ export async function POST(request: Request) {
         spentToday: updatedAgent.spentToday,
       },
     });
-  } catch {
+  } catch (error) {
+    console.error("APPROVE API ERROR:", error);
+
     return NextResponse.json(
       {
         success: false,
-        reason: "Invalid JSON request",
+        reason: "Unable to process approval request",
       },
-      { status: 400 }
+      { status: 500 },
     );
   }
 }
-

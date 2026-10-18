@@ -1,19 +1,38 @@
 import { NextResponse } from "next/server";
-import { findTransaction, rejectTransaction } from "../../../lib/transactionLedger";
+import {
+  findTransaction,
+  rejectTransaction,
+} from "../../../lib/transactionLedger";
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    let body: { transactionId?: unknown };
 
-    const transactionId = Number(body.transactionId);
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        {
+          success: false,
+          reason: "Invalid JSON request",
+        },
+        { status: 400 },
+      );
+    }
 
-    if (!Number.isFinite(transactionId)) {
+    const transactionId = body.transactionId;
+
+    if (
+      typeof transactionId !== "number" ||
+      !Number.isSafeInteger(transactionId) ||
+      transactionId <= 0
+    ) {
       return NextResponse.json(
         {
           success: false,
           reason: "Invalid transaction ID",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -25,7 +44,7 @@ export async function POST(request: Request) {
           success: false,
           reason: "Transaction not found",
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -35,7 +54,7 @@ export async function POST(request: Request) {
           success: false,
           reason: "Transaction is not pending",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -47,33 +66,35 @@ export async function POST(request: Request) {
           success: false,
           reason: "Unable to reject transaction",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     const updatedTransaction = await findTransaction(transaction.id);
 
-if (!updatedTransaction) {
-  return NextResponse.json(
-    {
-      success: false,
-      reason: "Transaction could not be reloaded",
-    },
-    { status: 500 }
-  );
-}
+    if (!updatedTransaction) {
+      return NextResponse.json(
+        {
+          success: false,
+          reason: "Transaction could not be reloaded",
+        },
+        { status: 500 },
+      );
+    }
 
     return NextResponse.json({
       success: true,
       transaction: updatedTransaction,
     });
-  } catch {
+  } catch (error) {
+    console.error("REJECT API ERROR:", error);
+
     return NextResponse.json(
       {
         success: false,
-        reason: "Invalid JSON request",
+        reason: "Unable to process rejection request",
       },
-      { status: 400 }
+      { status: 500 },
     );
   }
 }
