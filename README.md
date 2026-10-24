@@ -72,29 +72,118 @@ These features are still part of an evolving prototype; they have not been indep
 
 The repository also contains Prisma-related dependencies/configuration, but the wallet's current data access and atomic approval flow use Supabase/PostgreSQL.
 
-## Architecture overview
+## Architecture Overview
 
-```text
-User
-  |
-  v
-Next.js dashboard (React)
-  |
-  v
-Next.js API routes
-  |                    \
-  v                     v
-Supabase data access   Atomic approval RPC
-  |                     |
-  v                     v
-PostgreSQL tables: agents, transactions, transaction_events
+AI Agent Wallet follows a layered architecture: the user interacts with a Next.js dashboard, API routes handle requests, and Supabase/PostgreSQL stores data and enforces critical payment approval rules.
+
+```mermaid
+flowchart TB
+    USER(["👤 Developer / User"])
+
+    subgraph FRONTEND["01 · Presentation Layer"]
+        direction TB
+        UI["AI Agent Wallet Dashboard"]
+        REACT["React 19 · TypeScript"]
+        UI --- REACT
+    end
+
+    subgraph BACKEND["02 · Application Layer — Next.js"]
+        direction TB
+        API["API Routes"]
+        AGENT_API["Agents API"]
+        PAYMENT_API["Payments API"]
+        APPROVE_API["Approve API"]
+        REJECT_API["Reject API"]
+        VALIDATION["Input Validation<br/>JSON · IDs · Error Handling"]
+
+        API --> AGENT_API
+        API --> PAYMENT_API
+        API --> APPROVE_API
+        API --> REJECT_API
+
+        AGENT_API --> VALIDATION
+        PAYMENT_API --> VALIDATION
+        APPROVE_API --> VALIDATION
+        REJECT_API --> VALIDATION
+    end
+
+    subgraph SUPABASE["03 · Data & Transaction Layer — Supabase"]
+        direction TB
+        CLIENT["Supabase JavaScript Client"]
+
+        subgraph DATABASE["PostgreSQL Database"]
+            direction TB
+            RPC["Atomic Approval Function<br/>approve_transaction_atomic()"]
+
+            subgraph TABLES["Database Tables"]
+                direction LR
+                AGENTS[("agents")]
+                TRANSACTIONS[("transactions")]
+                EVENTS[("transaction_events")]
+            end
+        end
+
+        RPC -->|"Checks and updates"| AGENTS
+        RPC -->|"Updates status"| TRANSACTIONS
+        RPC -->|"Records events"| EVENTS
+    end
+
+    USER --> UI
+    UI -->|"HTTP requests"| API
+    VALIDATION --> CLIENT
+    CLIENT -->|"Read / Write"| TABLES
+    APPROVE_API -->|"Calls database function"| RPC
+
+    subgraph FUTURE["04 · Planned Security Layer — Not Yet Complete"]
+        direction LR
+        AUTH["Supabase Auth<br/>Login / Signup"]
+        OWNERSHIP["User Ownership<br/>Agents & Transactions"]
+        RLS["Row Level Security<br/>RLS Policies"]
+        AUTH --> OWNERSHIP --> RLS
+    end
+
+    FUTURE -.->|"Next implementation milestone"| BACKEND
+
+    classDef user fill:#334155,stroke:#64748b,color:#ffffff,stroke-width:2px
+    classDef frontend fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:1.5px
+    classDef backend fill:#d1fae5,stroke:#059669,color:#064e3b,stroke-width:1.5px
+    classDef database fill:#ede9fe,stroke:#7c3aed,color:#4c1d95,stroke-width:1.5px
+    classDef security fill:#fff7ed,stroke:#ea580c,color:#9a3412,stroke-width:1.5px
+
+    class USER user
+    class UI,REACT frontend
+    class API,AGENT_API,PAYMENT_API,APPROVE_API,REJECT_API,VALIDATION,CLIENT backend
+    class RPC,AGENTS,TRANSACTIONS,EVENTS database
+    class AUTH,OWNERSHIP,RLS security
+
+    style FRONTEND fill:#eff6ff,stroke:#2563eb,stroke-width:2px
+    style BACKEND fill:#ecfdf5,stroke:#059669,stroke-width:2px
+    style SUPABASE fill:#f5f3ff,stroke:#7c3aed,stroke-width:2px
+    style DATABASE fill:#faf5ff,stroke:#8b5cf6,stroke-width:1px
+    style TABLES fill:#ffffff,stroke:#a78bfa,stroke-width:1px
+    style FUTURE fill:#fff7ed,stroke:#ea580c,stroke-width:2px,stroke-dasharray:5 5
+
+    linkStyle default stroke:#64748b,stroke-width:1.5px
 ```
 
-### Important database concepts
+### How to read this architecture
 
-- **`agents`** stores an agent's balance, active state, limits, API key, and allowed merchants.
-- **`transactions`** stores the agent, merchant, amount, status, reason, and creation time. `agent_id` references `agents.id`.
-- **`transaction_events`** records approval success/failure events for the atomic approval flow.
+| Layer | Responsibility |
+|---|---|
+| Presentation | Displays agent balances, spending limits, payment requests, and transaction status. |
+| Application | Next.js API routes process agent, payment, approval, and rejection requests. |
+| Data access | The Supabase client connects application code to PostgreSQL. |
+| Transaction safety | The atomic approval function checks spending rules and coordinates transaction and balance updates. |
+| Planned security | Authentication, verified data ownership, and RLS need to be completed before production use. |
+
+### Important database relationships
+
+- `agents` stores agent configuration, balance, spending limits, allowed merchants, and API keys.
+- `transactions.agent_id` references `agents.id`, connecting each transaction to its agent.
+- `transaction_events` records approval success and failure events.
+- The atomic approval function uses database row locks to help prevent conflicting concurrent approvals.
+
+> **Current status:** The core wallet prototype and atomic approval flow have been implemented and tested along selected paths. Login/signup, per-user ownership, and complete API authorization are not yet finished. The planned security layer in this diagram represents future work, not existing protection.
 
 ## Local development
 
