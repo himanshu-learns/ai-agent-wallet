@@ -1,47 +1,68 @@
+
 import { NextResponse } from "next/server";
-import { toggleAgent } from "../../../../lib/agentStore";
+import { getAuthenticatedUser } from "../../../../lib/supabase/server";
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    const auth = await getAuthenticatedUser();
 
+    if (!auth) {
+      return NextResponse.json(
+        { success: false, reason: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    const body = await request.json();
     const agentId = Number(body.agentId);
 
-    if (!Number.isFinite(agentId)) {
+    if (!Number.isSafeInteger(agentId) || agentId <= 0) {
       return NextResponse.json(
-        {
-          success: false,
-          reason: "Invalid agent ID",
-        },
+        { success: false, reason: "Invalid agent ID" },
         { status: 400 }
       );
     }
 
-  const agent = await toggleAgent(agentId);
+    const { data: existingAgent, error: fetchError } =
+      await auth.supabase
+        .from("agents")
+        .select("id, active")
+        .eq("id", agentId)
+        .eq("user_id", auth.user.id)
+        .maybeSingle();
 
-if (!agent) {
-  return NextResponse.json(
-    {
-      success: false,
-      reason: "Agent not found or could not be updated",
-    },
-    { status: 404 }
-  );
-}
+    if (fetchError || !existingAgent) {
+      return NextResponse.json(
+        { success: false, reason: "Agent not found" },
+        { status: 404 }
+      );
+    }
 
-return NextResponse.json({
-  success: true,
-  agent: {
-    id: agent.id,
-    active: agent.active,
-  },
-});
+    const { data, error } = await auth.supabase
+      .from("agents")
+      .update({ active: !existingAgent.active })
+      .eq("id", agentId)
+      .eq("user_id", auth.user.id)
+      .select("id, active")
+      .maybeSingle();
+
+    if (error || !data) {
+      return NextResponse.json(
+        { success: false, reason: "Failed to update agent" },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      agent: {
+        id: data.id,
+        active: data.active,
+      },
+    });
   } catch {
     return NextResponse.json(
-      {
-        success: false,
-        reason: "Invalid JSON request",
-      },
+      { success: false, reason: "Invalid JSON request" },
       { status: 400 }
     );
   }

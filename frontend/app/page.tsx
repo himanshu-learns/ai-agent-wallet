@@ -1,15 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  evaluatePayment,
-  type PaymentRequest,
-} from "../lib/paymentEngine";
-
-import {
-  createTransaction,
-  type Transaction,
-} from "../lib/transactionLedger";
+import type { Transaction } from "../lib/transactionLedger";
 
 type Agent = {
   id: number;
@@ -19,54 +11,11 @@ type Agent = {
   transactionLimit: number;
   active: boolean;
   spentToday: number;
-  apiKey: string;
 };
 
-const initialAgents: Agent[] = [
-  {
-    id: 1,
-    name: "Coding Agent",
-    balance: 100,
-    dailyLimit: 20,
-    transactionLimit: 5,
-    active: true,
-    spentToday: 0,
-    apiKey: "sandbox-agent-key-001",
-  },
-];
-
-const initialTransactions: Transaction[] = [
-  {
-    id: 1,
-    agentId: 1,
-    merchant: "OpenAI API",
-    amount: 0.15,
-    status: "Approved",
-    reason: "Payment approved",
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 2,
-    agentId: 1,
-    merchant: "AWS",
-    amount: 2,
-    status: "Approved",
-    reason: "Payment approved",
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 3,
-    agentId: 1,
-    merchant: "Unknown Service",
-    amount: 10,
-    status: "Blocked",
-    reason: "Transaction limit exceeded",
-    createdAt: new Date().toISOString(),
-  },
-];
 
 export default function Home() {
-  const [agents, setAgents] = useState<Agent[]>(initialAgents);
+  const [agents, setAgents] = useState<Agent[]>([]);
   useEffect(() => {
   async function loadAgents() {
     try {
@@ -88,7 +37,7 @@ export default function Home() {
   loadAgents();
 }, []);
   const [transactions, setTransactions] = 
-  useState<Transaction[]>(initialTransactions);
+   useState<Transaction[]>([]);
   
   useEffect(() => {
   async function loadTransactions() {
@@ -111,6 +60,7 @@ export default function Home() {
 }, []);
 
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [newAgentApiKey, setNewAgentApiKey] = useState<string | null>(null);
 
   const [isMounted, setIsMounted] = useState(false);
   const [name, setName] = useState("");
@@ -173,9 +123,13 @@ const [paymentResult, setPaymentResult] = useState<{
     }
 
     setAgents((currentAgents) => [
-      ...currentAgents,
-      data.agent,
-    ]);
+  ...currentAgents,
+  data.agent,
+]);
+
+setSelectedAgentId(data.agent.id);
+
+setNewAgentApiKey(data.apiKey);
 
     setName("");
     setBalance("100");
@@ -233,12 +187,11 @@ async function requestPayment() {
   }
 
   try {
-    const response = await fetch("/api/payments", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-agent-api-key": agent.apiKey,
-      },
+    const response = await fetch("/api/dashboard-payments", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+  },
       body: JSON.stringify({
         agentId: agent.id,
         merchant: paymentMerchant,
@@ -428,6 +381,40 @@ async function rejectPayment(transactionId: number) {
             </button>
           </div>
 
+          {newAgentApiKey && (
+  <div className="mb-6 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-5">
+    <h3 className="font-semibold text-emerald-400">
+      Agent created successfully
+    </h3>
+
+    <p className="mt-2 text-sm text-slate-300">
+      Copy this API key now. It will not be shown again.
+    </p>
+
+    <div className="mt-4 flex flex-wrap items-center gap-3">
+      <code className="break-all rounded-lg bg-slate-950 p-3 text-xs text-white">
+        {newAgentApiKey}
+      </code>
+
+      <button
+        onClick={() =>
+          navigator.clipboard.writeText(newAgentApiKey)
+        }
+        className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-slate-950"
+      >
+        Copy API Key
+      </button>
+
+      <button
+        onClick={() => setNewAgentApiKey(null)}
+        className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300"
+      >
+        Dismiss
+      </button>
+    </div>
+  </div>
+)}
+
           {/* Create Agent Form */}
           {showCreateForm && (
             <div className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-6">
@@ -570,27 +557,6 @@ async function rejectPayment(transactionId: number) {
                           ${agent.balance.toFixed(2)}
                         </p>
                       </div>
-
-                      <div>
-  <p className="text-slate-500">
-    API Key
-  </p>
-
-  <div className="mt-1 flex items-center gap-2">
-    <code className="max-w-[180px] truncate font-mono text-xs text-slate-300">
-      {agent.apiKey}
-    </code>
-
-    <button
-      onClick={() =>
-        navigator.clipboard.writeText(agent.apiKey)
-      }
-      className="rounded-md border border-slate-700 px-2 py-1 text-xs text-slate-300 hover:bg-slate-800"
-    >
-      Copy
-    </button>
-  </div>
-</div>
 
                       <div>
                         <p className="text-slate-500">

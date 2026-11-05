@@ -1,20 +1,31 @@
+
 import { NextResponse } from "next/server";
 import { createAgent } from "../../../lib/agentStore";
-import { supabase } from "../../../lib/supabase";
+import { getAuthenticatedUser } from "../../../lib/supabase/server";
+import { adminSupabase } from "../../../lib/supabase/admin";
 
 export async function GET() {
   try {
-    const { data, error } = await supabase
+    const auth = await getAuthenticatedUser();
+
+    if (!auth) {
+      return NextResponse.json(
+        { success: false, reason: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    const { data, error } = await auth.supabase
       .from("agents")
-      .select("*")
+      .select(
+        "id, name, balance, daily_limit, transaction_limit, active, spent_today, allowed_merchants"
+      )
+      .eq("user_id", auth.user.id)
       .order("id", { ascending: true });
 
     if (error) {
       return NextResponse.json(
-        {
-          success: false,
-          reason: error.message,
-        },
+        { success: false, reason: "Failed to fetch agents" },
         { status: 500 }
       );
     }
@@ -27,20 +38,13 @@ export async function GET() {
       transactionLimit: Number(agent.transaction_limit),
       active: agent.active,
       spentToday: Number(agent.spent_today),
-      apiKey: agent.api_key,
       allowedMerchants: agent.allowed_merchants ?? [],
     }));
 
-    return NextResponse.json({
-      success: true,
-      agents,
-    });
+    return NextResponse.json({ success: true, agents });
   } catch {
     return NextResponse.json(
-      {
-        success: false,
-        reason: "Failed to fetch agents",
-      },
+      { success: false, reason: "Failed to fetch agents" },
       { status: 500 }
     );
   }
@@ -48,6 +52,15 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const auth = await getAuthenticatedUser();
+
+    if (!auth) {
+      return NextResponse.json(
+        { success: false, reason: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
 
     const {
@@ -61,48 +74,49 @@ export async function POST(request: Request) {
     if (
       typeof name !== "string" ||
       !name.trim() ||
-      typeof balance !== "number" ||
-      typeof dailyLimit !== "number" ||
-      typeof transactionLimit !== "number" ||
-      !Array.isArray(allowedMerchants)
+      !Number.isFinite(balance) ||
+      balance < 0 ||
+      !Number.isFinite(dailyLimit) ||
+      dailyLimit < 0 ||
+      !Number.isFinite(transactionLimit) ||
+      transactionLimit < 0 ||
+      !Array.isArray(allowedMerchants) ||
+      !allowedMerchants.every(
+        (merchant: unknown) =>
+          typeof merchant === "string" && merchant.trim().length > 0
+      )
     ) {
       return NextResponse.json(
-        {
-          success: false,
-          reason: "Invalid agent data",
-        },
+        { success: false, reason: "Invalid agent data" },
         { status: 400 }
       );
     }
 
-    const agent = await createAgent(
+    const result = await createAgent(
+      adminSupabase,
+      auth.user.id,
       name.trim(),
       balance,
       dailyLimit,
       transactionLimit,
-      allowedMerchants
+      allowedMerchants.map((merchant: string) => merchant.trim())
     );
 
-    if (!agent) {
+    if (!result) {
       return NextResponse.json(
-        {
-          success: false,
-          reason: "Failed to create agent",
-        },
+        { success: false, reason: "Failed to create agent" },
         { status: 500 }
       );
     }
 
     return NextResponse.json({
       success: true,
-      agent,
+      agent: result.agent,
+      apiKey: result.apiKey,
     });
   } catch {
     return NextResponse.json(
-      {
-        success: false,
-        reason: "Invalid JSON request",
-      },
+      { success: false, reason: "Invalid JSON request" },
       { status: 400 }
     );
   }

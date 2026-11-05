@@ -1,5 +1,6 @@
 import type { Agent } from "./paymentEngine";
-import { supabase } from "./supabase";
+import { randomBytes, createHash } from "crypto";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 function mapAgent(row: any): Agent {
   return {
@@ -10,58 +11,22 @@ function mapAgent(row: any): Agent {
     transactionLimit: Number(row.transaction_limit),
     active: row.active,
     spentToday: Number(row.spent_today),
-    apiKey: row.api_key,
     allowedMerchants: row.allowed_merchants ?? [],
   };
 }
-
-export async function findAgent(agentId: number) {
-  const { data, error } = await supabase
-    .from("agents")
-    .select("*")
-    .eq("id", agentId)
-    .single();
-
-  if (error || !data) {
-    return undefined;
-  }
-
-  return mapAgent(data);
-}
-
-export async function toggleAgent(agentId: number) {
-  const agent = await findAgent(agentId);
-
-  if (!agent) {
-    return null;
-  }
-
-  const { data, error } = await supabase
-    .from("agents")
-    .update({
-      active: !agent.active,
-    })
-    .eq("id", agentId)
-    .select()
-    .single();
-
-  if (error || !data) {
-    return null;
-  }
-
-  return mapAgent(data);
-}
-
 export async function createAgent(
+  db: SupabaseClient,
+  userId: string,
   name: string,
   balance: number,
   dailyLimit: number,
   transactionLimit: number,
   allowedMerchants: string[]
-): Promise<Agent | null> {
-  const apiKey = `sandbox-agent-key-${Date.now()}`;
+ ): Promise<{ agent: Agent; apiKey: string } | null> {
+  const apiKey = randomBytes(32).toString("hex");
+  const apiKeyHash = createHash("sha256").update(apiKey).digest("hex");
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("agents")
     .insert({
       name,
@@ -70,15 +35,19 @@ export async function createAgent(
       transaction_limit: transactionLimit,
       active: true,
       spent_today: 0,
-      api_key: apiKey,
+      api_key_hash: apiKeyHash,
       allowed_merchants: allowedMerchants,
+      user_id: userId,
     })
-    .select()
-    .single();
+    .select(
+  "id, name, balance, daily_limit, transaction_limit, active, spent_today, allowed_merchants"
+)
+.single();
 
-  if (error || !data) {
-    return null;
-  }
+ if (error || !data) return null;
 
-  return mapAgent(data);
+return {
+  agent: mapAgent(data),
+  apiKey,
+};
 }
