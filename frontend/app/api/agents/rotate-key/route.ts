@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { randomBytes, createHash } from "crypto";
 import { getAuthenticatedUser } from "../../../../lib/supabase/server";
 import { adminSupabase } from "../../../../lib/supabase/admin";
+import { checkRateLimit } from "../../../../lib/rateLimit";
 
 export async function POST(request: Request) {
   try {
@@ -14,6 +15,15 @@ export async function POST(request: Request) {
         { status: 401 }
       );
     }
+
+    const allowed = await checkRateLimit(auth.user.id);
+
+if (!allowed) {
+  return NextResponse.json(
+    { success: false, reason: "Too many requests. Try again later." },
+    { status: 429 }
+  );
+}
 
     const body = await request.json();
     const agentId = body.agentId;

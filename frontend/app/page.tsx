@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createClient } from "../lib/supabase-browser";
 import type { Transaction } from "../lib/transactionLedger";
 
 type Agent = {
@@ -15,6 +16,20 @@ type Agent = {
 
 
 export default function Home() {
+
+async function handleLogout() {
+  const supabase = createClient();
+
+  const { error } = await supabase.auth.signOut();
+
+  if (error) {
+    window.alert("Logout failed. Please try again.");
+    return;
+  }
+
+  window.location.href = "/login";
+}
+
   const [agents, setAgents] = useState<Agent[]>([]);
   useEffect(() => {
   async function loadAgents() {
@@ -214,6 +229,39 @@ async function rotateAgentKey(agentId: number) {
   }
 }
 
+
+async function revokeAgentKey(agentId: number) {
+  const confirmed = window.confirm(
+    "Revoking this API key will permanently disable it. Continue?"
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    const response = await fetch("/api/agents/revoke-key", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ agentId }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      window.alert(data.reason || "Failed to revoke API key");
+      return;
+    }
+
+    window.alert("API key revoked successfully.");
+  } catch {
+    window.alert("Something went wrong while revoking the API key.");
+  }
+}
+
+
 async function requestPayment() {
   const agent = agents.find(
     (agent) => agent.id === selectedAgentId
@@ -381,6 +429,14 @@ async function rejectPayment(transactionId: number) {
           <div className="rounded-full border border-slate-700 bg-slate-900 px-4 py-2 text-sm text-slate-300">
             Sandbox Mode
           </div>
+
+<button
+  onClick={handleLogout}
+  className="rounded-lg border border-red-500/40 px-4 py-2 text-sm text-red-400 hover:bg-red-500/10"
+>
+  Logout
+</button>
+
         </header>
 
         {/* Stats */}
@@ -630,6 +686,14 @@ async function rejectPayment(transactionId: number) {
   className="rounded-lg border border-amber-500/40 px-4 py-2 text-sm text-amber-400 hover:bg-amber-500/10"
 >
   Rotate API Key
+</button>
+
+
+<button
+  onClick={() => revokeAgentKey(agent.id)}
+  className="rounded-lg border border-red-500/40 px-4 py-2 text-sm text-red-400 hover:bg-red-500/10"
+>
+  Revoke API Key
 </button>
 
                 </div>
