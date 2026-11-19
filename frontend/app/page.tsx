@@ -61,6 +61,7 @@ export default function Home() {
 
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newAgentApiKey, setNewAgentApiKey] = useState<string | null>(null);
+  const [apiKeyAction, setApiKeyAction] = useState<"created" | "rotated">("created");
 
   const [isMounted, setIsMounted] = useState(false);
   const [name, setName] = useState("");
@@ -128,6 +129,7 @@ const [paymentResult, setPaymentResult] = useState<{
 ]);
 
 setSelectedAgentId(data.agent.id);
+setApiKeyAction("created");
 
 setNewAgentApiKey(data.apiKey);
 
@@ -174,6 +176,41 @@ async function toggleAgent(agentId: number) {
     }
   } catch {
     return;
+  }
+}
+
+
+async function rotateAgentKey(agentId: number) {
+  const confirmed = window.confirm(
+    "Rotating this API key will immediately invalidate the old key. Continue?"
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    const response = await fetch("/api/agents/rotate-key", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ agentId }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      window.alert(data.reason || "Failed to rotate API key");
+      return;
+    }
+    setApiKeyAction("rotated");
+    setNewAgentApiKey(data.apiKey);
+    window.alert(
+      "API key rotated successfully. Copy your new key now."
+    );
+  } catch {
+    window.alert("Something went wrong while rotating the API key.");
   }
 }
 
@@ -383,9 +420,11 @@ async function rejectPayment(transactionId: number) {
 
           {newAgentApiKey && (
   <div className="mb-6 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-5">
-    <h3 className="font-semibold text-emerald-400">
-      Agent created successfully
-    </h3>
+   <h3 className="font-semibold text-emerald-400">
+  {apiKeyAction === "created"
+    ? "Agent created successfully"
+    : "API key rotated successfully"}
+</h3>
 
     <p className="mt-2 text-sm text-slate-300">
       Copy this API key now. It will not be shown again.
@@ -584,6 +623,15 @@ async function rejectPayment(transactionId: number) {
                   >
                     {agent.active ? "Pause Agent" : "Activate Agent"}
                   </button>
+
+
+<button
+  onClick={() => rotateAgentKey(agent.id)}
+  className="rounded-lg border border-amber-500/40 px-4 py-2 text-sm text-amber-400 hover:bg-amber-500/10"
+>
+  Rotate API Key
+</button>
+
                 </div>
               </div>
             ))}

@@ -23,8 +23,7 @@ export async function authenticateAgent(
       active,
       spent_today,
       allowed_merchants,
-      api_key_hash,
-      api_key
+      api_key_hash
     `)
     .eq("id", agentId)
     .maybeSingle();
@@ -42,12 +41,6 @@ export async function authenticateAgent(
     isValid =
       storedHash.length === providedHash.length &&
       timingSafeEqual(storedHash, providedHash);
-  } else if (data.api_key) {
-    // Temporary support for legacy plaintext keys.
-    isValid = timingSafeEqual(
-      hashKey(data.api_key),
-      providedHash
-    );
   }
 
   if (!isValid) {
