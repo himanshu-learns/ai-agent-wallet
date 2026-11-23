@@ -148,6 +148,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
+      duplicate: paymentResult.duplicate === true,
       approved: transaction.status === "Approved",
       reason: transaction.reason,
       payment: {
