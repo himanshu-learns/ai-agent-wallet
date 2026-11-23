@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "../lib/supabase-browser";
 import type { Transaction } from "../lib/transactionLedger";
 
@@ -85,6 +85,10 @@ async function handleLogout() {
   const [transactionLimit, setTransactionLimit] = useState("5");
   const [paymentMerchant, setPaymentMerchant] = useState("");
   const [paymentAmount, setPaymentAmount] = useState("");
+  const paymentAttemptRef = useRef<{
+  fingerprint: string;
+  key: string;
+} | null>(null);
   const [selectedAgentId, setSelectedAgentId] = useState(1);
   const [selectedMerchants, setSelectedMerchants] = useState<string[]>([
   "OpenAI API",
@@ -271,12 +275,31 @@ async function requestPayment() {
     return;
   }
 
+  const fingerprint = JSON.stringify({
+  agentId: agent.id,
+  merchant: paymentMerchant.trim(),
+  amount: Number(paymentAmount),
+});
+
+if (
+  !paymentAttemptRef.current ||
+  paymentAttemptRef.current.fingerprint !== fingerprint
+) {
+  paymentAttemptRef.current = {
+    fingerprint,
+    key: crypto.randomUUID(),
+  };
+}
+
+const idempotencyKey = paymentAttemptRef.current.key;
+
   try {
     const response = await fetch("/api/dashboard-payments", {
   method: "POST",
   headers: {
-    "Content-Type": "application/json",
-  },
+  "Content-Type": "application/json",
+  "Idempotency-Key": idempotencyKey,
+},
       body: JSON.stringify({
         agentId: agent.id,
         merchant: paymentMerchant,
@@ -296,6 +319,7 @@ async function requestPayment() {
         data.transaction,
         ...currentTransactions,
       ]);
+      paymentAttemptRef.current = null;
     }
   if (data.approved && data.agent) {
   setAgents((currentAgents) =>

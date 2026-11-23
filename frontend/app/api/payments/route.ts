@@ -25,6 +25,23 @@ export async function POST(request: Request) {
       );
     }
 
+    const idempotencyKey = request.headers.get("idempotency-key");
+
+    if (
+      !idempotencyKey ||
+      !idempotencyKey.trim() ||
+      idempotencyKey.length > 200
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          approved: false,
+          reason: "Missing or invalid Idempotency-Key",
+        },
+        { status: 400 }
+      );
+    }
+
     const body = (await request.json()) as PaymentRequest;
 
     if (
@@ -82,6 +99,7 @@ export async function POST(request: Request) {
         p_amount: body.amount,
         p_status: paymentStatus,
         p_reason: decision.reason,
+        p_idempotency_key: idempotencyKey,
       });
 
     if (paymentError) {
