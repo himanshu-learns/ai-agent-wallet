@@ -25,7 +25,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const idempotencyKey = request.headers.get("idempotency-key");
+    const idempotencyKey =
+        request.headers.get("idempotency-key")?.trim();
 
     if (
       !idempotencyKey ||
@@ -49,9 +50,12 @@ export async function POST(request: Request) {
       body.agentId <= 0 ||
       typeof body.merchant !== "string" ||
       !body.merchant.trim() ||
+      body.merchant.trim().length > 100 ||
       typeof body.amount !== "number" ||
       !Number.isFinite(body.amount) ||
-      body.amount <= 0
+      body.amount <= 0 ||
+      body.amount > 9999999999.99 ||
+      !Number.isInteger(body.amount * 100)
     ) {
       return NextResponse.json(
         {
