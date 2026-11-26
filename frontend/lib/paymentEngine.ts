@@ -5,7 +5,7 @@ export type Agent = {
   dailyLimit: number;
   transactionLimit: number;
   active: boolean;
-  spentToday?: number;
+  spentToday: number;
   allowedMerchants: string[];
 };
 
@@ -49,6 +49,14 @@ export function evaluatePayment(
     };
   }
 
+  // 4. Check merchant allowlist
+if (!agent.allowedMerchants.includes(request.merchant)) {
+  return {
+    approved: false,
+    reason: "Merchant is not allowed",
+  };
+}
+
   // 4. Check per-transaction limit
  if (request.amount > agent.transactionLimit) {
   return {
@@ -61,7 +69,7 @@ export function evaluatePayment(
 }
 
   // 5. Check daily spending limit
-  const spentToday = agent.spentToday ?? 0;
+  const spentToday = agent.spentToday;
 
   if (spentToday + request.amount > agent.dailyLimit) {
     return {
@@ -71,14 +79,6 @@ export function evaluatePayment(
       )}`,
     };
   }
-
-  // 6. Check merchant allowlist
-if (!agent.allowedMerchants.includes(request.merchant)) {
-  return {
-    approved: false,
-    reason: "Merchant is not allowed",
-  };
-}
 
   // 7. Payment passes all policies
   return {

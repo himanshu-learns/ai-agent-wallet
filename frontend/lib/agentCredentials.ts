@@ -43,9 +43,9 @@ export async function authenticateAgent(
       timingSafeEqual(storedHash, providedHash);
   }
 
-  if (!isValid) {
-    return null;
-  }
+ if (!isValid || !data.active) {
+  return null;
+}
 
   const agent: Agent = {
     id: data.id,
